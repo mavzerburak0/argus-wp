@@ -1,5 +1,9 @@
 # Argus-WP - WordPress Vulnerability Scanner
 
+<p align="center">
+  <img src="public/argus-wp-logo.jpg" alt="Argus-WP Logo" width="400">
+</p>
+
 This project is mostly vibe-coded.
 
 A WordPress security scanner that identifies vulnerabilities, misconfigurations, and security issues in WordPress installations.
