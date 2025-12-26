@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  argus-wp:
+    build: .
+    image: argus-wp:latest
+    container_name: argus-wp-scanner
+    volumes:
+      # Mount output directory for saving results
+      - ./output:/output
+    # Override entrypoint for interactive use
+    # entrypoint: ["python", "argus-wp.py"]
+    # Example: docker-compose run argus-wp scan https://example.com
+    stdin_open: true
+    tty: true

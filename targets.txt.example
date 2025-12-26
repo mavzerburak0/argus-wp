@@ -1,0 +1,12 @@
+# Example targets file for Argus-WP batch scanning
+# Lines starting with # are ignored
+# Add one URL per line
+
+https://wordpress.org
+https://techcrunch.com
+
+# An example of a non-wordpress site
+https://github.com
+
+# You can add more URLs as needed
+# https://another-site.com
