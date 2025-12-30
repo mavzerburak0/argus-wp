@@ -114,6 +114,11 @@ def cli():
     is_flag=True,
     help='Disable SSL certificate verification'
 )
+@click.option(
+    '--slack-webhook',
+    type=str,
+    help='Slack webhook URL for sending scan results notifications'
+)
 def scan(
     url: str,
     targets: str,
@@ -131,7 +136,8 @@ def scan(
     no_color: bool,
     mode: str,
     rate_limit: float,
-    no_ssl_verify: bool
+    no_ssl_verify: bool,
+    slack_webhook: str
 ):
     """
     Scan WordPress site(s) for vulnerabilities.
@@ -188,7 +194,7 @@ def scan(
         _scan_multiple_targets(
             target_urls, enumerate, threads, timeout,
             random_agent, user_agent, proxy, output, format, verbose,
-            debug, no_color, mode, rate_limit, no_ssl_verify
+            debug, no_color, mode, rate_limit, no_ssl_verify, slack_webhook
         )
         return
 
@@ -241,6 +247,10 @@ def scan(
             export_results(result, output, output_format)
             click.echo(f"\n[+] Results exported to: {output}")
 
+        # Send to Slack if webhook is configured
+        if slack_webhook:
+            _send_to_slack(result, slack_webhook, verbose)
+
         # Exit with appropriate code
         if result.get_total_vulnerabilities() > 0:
             sys.exit(1)  # Vulnerabilities found
@@ -260,7 +270,7 @@ def scan(
 def _scan_multiple_targets(
     target_urls, enumerate, threads, timeout,
     random_agent, user_agent, proxy, output, format, verbose,
-    debug, no_color, mode, rate_limit, no_ssl_verify
+    debug, no_color, mode, rate_limit, no_ssl_verify, slack_webhook
 ):
     """
     Scan multiple WordPress targets.
@@ -330,6 +340,10 @@ def _scan_multiple_targets(
             all_results.append(result.to_dict())
             successful_scans += 1
 
+            # Send to Slack immediately after each scan if webhook is configured
+            if slack_webhook:
+                _send_to_slack(result, slack_webhook, verbose, is_batch=False)
+
         except KeyboardInterrupt:
             click.echo("\n[!] Batch scan interrupted by user")
             break
@@ -383,6 +397,9 @@ def _scan_multiple_targets(
         else:
             click.echo("\n[!] Only JSON format is supported for batch scans")
 
+    # Note: Individual Slack messages are sent after each scan completes
+    # No batch summary message is sent to avoid duplication
+
     # Exit with appropriate code
     if total_vulns > 0:
         sys.exit(1)  # Vulnerabilities found
@@ -411,6 +428,41 @@ def export_results(result, output_file: str, format: OutputFormat):
         click.echo("[!] CSV export not yet implemented")
     else:
         click.echo("[!] Unsupported export format")
+
+
+def _send_to_slack(data, webhook_url: str, verbose: bool, is_batch: bool = False):
+    """
+    Send scan results to Slack webhook.
+
+    Args:
+        data: Scan result data (ScanResult object or dict for batch)
+        webhook_url: Slack webhook URL
+        verbose: Verbose output flag
+        is_batch: Whether this is a batch scan result
+    """
+    try:
+        from src.utils.slack_notifier import SlackNotifier
+
+        if verbose:
+            click.echo("\n[*] Sending results to Slack...")
+
+        notifier = SlackNotifier(webhook_url)
+
+        # Convert ScanResult to dict if needed
+        if hasattr(data, 'to_dict'):
+            scan_data = data.to_dict()
+        else:
+            scan_data = data
+
+        success = notifier.send_scan_results(scan_data, is_batch=is_batch)
+
+        if success:
+            click.echo("[+] Results successfully sent to Slack")
+        else:
+            click.echo("[-] Failed to send results to Slack", err=True)
+
+    except Exception as e:
+        click.echo(f"[-] Error sending to Slack: {str(e)}", err=True)
 
 
 if __name__ == '__main__':
