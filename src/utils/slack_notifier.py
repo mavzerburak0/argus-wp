@@ -1,7 +1,6 @@
 """
 Slack notification module for sending formatted scan results to Slack.
 """
-import json
 import requests
 from typing import Dict, List, Any
 from datetime import datetime
@@ -133,12 +132,23 @@ class SlackNotifier:
 
         # WordPress Version and Summary
         wp_version = result.get('wordpress_version', 'Unknown')
+        wp_latest_version = result.get('wordpress_latest_version')
+        wp_is_outdated = result.get('wordpress_is_outdated', False)
+
+        # Display WordPress version with update status
+        wp_version_text = f"`{wp_version}`"
+        if wp_latest_version:
+            if wp_is_outdated:
+                wp_version_text = f"`{wp_version}` (latest: v{wp_latest_version})"
+            else:
+                wp_version_text = f"`{wp_version}` (up to date)"
+
         blocks.append({
             "type": "section",
             "fields": [
                 {
                     "type": "mrkdwn",
-                    "text": f"*{self.ISSUE_EMOJI['wordpress']} WordPress Version:*\n`{wp_version}`"
+                    "text": f"*{self.ISSUE_EMOJI['wordpress']} WordPress Version:*\n{wp_version_text}"
                 },
                 {
                     "type": "mrkdwn",
@@ -181,8 +191,6 @@ class SlackNotifier:
                 plugin_name = plugin.get('slug', 'Unknown')
                 plugin_version = plugin.get('version', 'Unknown')
                 vuln_count = plugin.get('vulnerability_count', 0)
-                detection_method = plugin.get('detection_method', 'unknown')
-                version_detection = plugin.get('version_detection', 'unknown')
 
                 if vuln_count > 0:
                     plugin_emoji = self.SEVERITY_EMOJI['high']
@@ -191,8 +199,21 @@ class SlackNotifier:
                     )
                     vulnerable_plugins.append(plugin)
                 else:
-                    version_status = f"v{plugin_version}" if version_detection == "confirmed" else f"v{plugin_version} (unconfirmed)"
-                    plugin_list.append(f"`{plugin_name}` {version_status}")
+                    # Display version with update status from scan results
+                    latest_version = plugin.get('latest_version')
+                    is_outdated = plugin.get('is_outdated', False)
+
+                    version_text = f"v{plugin_version}"
+                    if latest_version:
+                        if is_outdated:
+                            version_text = f"{version_text} (latest: v{latest_version})"
+                        else:
+                            version_text = f"{version_text} (up to date)"
+                    else:
+                        # Couldn't retrieve version info (likely premium/commercial plugin)
+                        version_text = f"{version_text} (version status unknown)"
+
+                    plugin_list.append(f"`{plugin_name}` {version_text}")
 
             # Display plugin list
             blocks.append({
@@ -246,8 +267,6 @@ class SlackNotifier:
                 theme_name = theme.get('slug', 'Unknown')
                 theme_version = theme.get('version', 'Unknown')
                 vuln_count = theme.get('vulnerability_count', 0)
-                detection_method = theme.get('detection_method', 'unknown')
-                version_detection = theme.get('version_detection', 'unknown')
 
                 if vuln_count > 0:
                     theme_emoji = self.SEVERITY_EMOJI['high']
@@ -256,8 +275,21 @@ class SlackNotifier:
                     )
                     vulnerable_themes.append(theme)
                 else:
-                    version_status = f"v{theme_version}" if version_detection == "confirmed" else f"v{theme_version} (unconfirmed)"
-                    theme_list.append(f"`{theme_name}` {version_status}")
+                    # Display version with update status from scan results
+                    latest_version = theme.get('latest_version')
+                    is_outdated = theme.get('is_outdated', False)
+
+                    version_text = f"v{theme_version}"
+                    if latest_version:
+                        if is_outdated:
+                            version_text = f"{version_text} (latest: v{latest_version})"
+                        else:
+                            version_text = f"{version_text} (up to date)"
+                    else:
+                        # Couldn't retrieve version info (likely premium/commercial theme)
+                        version_text = f"{version_text} (version status unknown)"
+
+                    theme_list.append(f"`{theme_name}` {version_text}")
 
             # Display theme list
             blocks.append({
@@ -733,9 +765,7 @@ class SlackNotifier:
             if response.status_code == 200:
                 return True
             else:
-                print(f"Error sending to Slack: {response.status_code} - {response.text}")
                 return False
 
-        except Exception as e:
-            print(f"Exception sending to Slack: {str(e)}")
+        except Exception:
             return False

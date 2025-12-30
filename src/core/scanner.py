@@ -11,6 +11,7 @@ from src.scanners.version_detector import VersionDetector
 from src.scanners.plugin_scanner import PluginScanner
 from src.scanners.theme_scanner import ThemeScanner
 from src.vulndb.wpvulnerability import WPVulnerabilityDatabase
+from src.utils.version_checker import VersionChecker
 
 
 class WordPressScanner:
@@ -128,6 +129,20 @@ class WordPressScanner:
         version = detector.detect()
         if version:
             self.result.wordpress_version = version
+
+            # Check latest version
+            if VersionChecker.is_version_valid(version):
+                self.output.progress("Checking for WordPress updates...")
+                latest_version = VersionChecker.get_latest_wordpress_version()
+                if latest_version:
+                    self.result.wordpress_latest_version = latest_version
+                    self.result.wordpress_is_outdated = VersionChecker.compare_versions(
+                        version, latest_version
+                    )
+                    if self.result.wordpress_is_outdated:
+                        self.output.warning(f"WordPress {version} is outdated (latest: {latest_version})")
+                    else:
+                        self.output.success(f"WordPress {version} is up to date")
 
             # Check for vulnerabilities in detected version
             self._check_wordpress_vulnerabilities(version)

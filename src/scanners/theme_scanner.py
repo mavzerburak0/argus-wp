@@ -9,6 +9,7 @@ from src.core.http_client import HTTPClient
 from src.core.config import ScanConfig
 from src.utils.logger import Output
 from src.vulndb.wpvulnerability import WPVulnerabilityDatabase
+from src.utils.version_checker import VersionChecker
 
 
 class ThemeScanner:
@@ -57,6 +58,12 @@ class ThemeScanner:
             self.output.newline()
             self.output.progress("Scanning for vulnerabilities...")
             self._scan_vulnerabilities()
+
+        # Phase 4: Check latest versions
+        if self.detected_themes:
+            self.output.newline()
+            self.output.progress("Checking for updates...")
+            self._check_latest_versions()
 
         # Display results
         self._display_results()
@@ -299,6 +306,29 @@ class ThemeScanner:
         if total_vulns > 0:
             self.output.newline()
             self.output.critical(f"Total theme vulnerabilities found: {total_vulns}")
+
+    def _check_latest_versions(self) -> None:
+        """
+        Check latest available versions for all detected themes.
+        """
+        total = len(self.detected_themes)
+        checked = 0
+
+        for slug, theme_data in self.detected_themes.items():
+            current_version = theme_data.get('version', 'unknown')
+
+            # Only check if version is valid
+            if VersionChecker.is_version_valid(current_version):
+                latest_version = VersionChecker.get_latest_theme_version(slug)
+                if latest_version:
+                    theme_data['latest_version'] = latest_version
+                    theme_data['is_outdated'] = VersionChecker.compare_versions(
+                        current_version, latest_version
+                    )
+                    checked += 1
+                    self.output.debug(f"  {slug}: v{current_version} (latest: v{latest_version})")
+
+        self.output.debug(f"Checked {checked}/{total} themes for updates")
 
     def _count_severities(self, vulnerabilities: List[Dict]) -> Dict[str, int]:
         """

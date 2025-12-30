@@ -9,6 +9,7 @@ from src.core.http_client import HTTPClient
 from src.core.config import ScanConfig
 from src.utils.logger import Output
 from src.vulndb.wpvulnerability import WPVulnerabilityDatabase
+from src.utils.version_checker import VersionChecker
 
 
 class PluginScanner:
@@ -57,6 +58,12 @@ class PluginScanner:
             self.output.newline()
             self.output.progress("Scanning for vulnerabilities...")
             self._scan_vulnerabilities()
+
+        # Phase 4: Check latest versions
+        if self.detected_plugins:
+            self.output.newline()
+            self.output.progress("Checking for updates...")
+            self._check_latest_versions()
 
         # Display results
         self._display_results()
@@ -297,15 +304,29 @@ class PluginScanner:
                     f"  {slug} (v{version}): {len(vulnerabilities)} vulnerability/ies found!",
                     "high"
                 )
-                self.output.debug(f"    Severity: {severity_counts}")
-            else:
-                plugin_data['vulnerabilities'] = []
-                plugin_data['vulnerability_count'] = 0
-                self.output.debug(f"  {slug}: No known vulnerabilities")
 
-        if total_vulns > 0:
-            self.output.newline()
-            self.output.critical(f"Total plugin vulnerabilities found: {total_vulns}")
+    def _check_latest_versions(self) -> None:
+        """
+        Check latest available versions for all detected plugins.
+        """
+        total = len(self.detected_plugins)
+        checked = 0
+
+        for slug, plugin_data in self.detected_plugins.items():
+            current_version = plugin_data.get('version', 'unknown')
+
+            # Only check if version is valid
+            if VersionChecker.is_version_valid(current_version):
+                latest_version = VersionChecker.get_latest_plugin_version(slug)
+                if latest_version:
+                    plugin_data['latest_version'] = latest_version
+                    plugin_data['is_outdated'] = VersionChecker.compare_versions(
+                        current_version, latest_version
+                    )
+                    checked += 1
+                    self.output.debug(f"  {slug}: v{current_version} (latest: v{latest_version})")
+
+        self.output.debug(f"Checked {checked}/{total} plugins for updates")
 
     def _count_severities(self, vulnerabilities: List[Dict]) -> Dict[str, int]:
         """

@@ -192,6 +192,8 @@ class ScanResult:
     target_url: str
     wordpress_detected: bool = False
     wordpress_version: Optional[str] = None
+    wordpress_latest_version: Optional[str] = None
+    wordpress_is_outdated: bool = False
     wordpress_vulnerabilities: List[dict] = field(default_factory=list)
 
     plugins: List[dict] = field(default_factory=list)
@@ -235,6 +237,8 @@ class ScanResult:
             'target_url': self.target_url,
             'wordpress_detected': self.wordpress_detected,
             'wordpress_version': self.wordpress_version,
+            'wordpress_latest_version': self.wordpress_latest_version,
+            'wordpress_is_outdated': self.wordpress_is_outdated,
             'wordpress_vulnerabilities': self.wordpress_vulnerabilities,
             'plugins': self.plugins,
             'themes': self.themes,
